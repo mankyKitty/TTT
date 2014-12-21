@@ -17,9 +17,6 @@ instance Show Pl where
     show X = "X"
     show O = "O"
 
-data IllegalMv = PlaceTaken
-  deriving Show
-
 type Move = (MoveN,MoveN)
 type Row  = (Int,Pl,Pl,Pl)
 type Game = (Row,Row,Row) -- yer boat
@@ -109,7 +106,8 @@ main = do
         if checkVictory g (flipPl p)
         then putStrLn $ "Player " <> (show $ flipPl p) <> " wins!!"
         else do
-          putStrLn $ "Player " <> show p <> " it is your turn:"
+          putStrLn $ "Player " <> show p <> " it is your turn."
+          putStrLn "Please enter your move, row:col eg 11, or 23:"
           i <- parseMove <$> getLine
           case i of
             Nothing -> putStrLn "Illegal move" >> go g p

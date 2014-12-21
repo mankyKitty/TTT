@@ -94,7 +94,7 @@ checkVictory g p = getAny $ foldMap (Any . getAll . foldMap f) victoryMoves
 main :: IO ()
 main = do
   putStrLn "Welcome to HicHacToe"
-  go startBoard X
+  go startBoard O
 
   where
     flipPl X = O

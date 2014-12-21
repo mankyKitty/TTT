@@ -1,11 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module TTT where
+module Main where
 
-import           Control.Lens
-import           Control.Applicative ((<$>))
-import           Data.Maybe (mapMaybe)
-import           Data.Monoid  ((<>))
+import Prelude ()
+import BasePrelude
+import Control.Lens ((^.),(&),(^?),to,_1,_2,_3,_4,Lens',(.~),_head)
 
 data Pl = E | X | O
     deriving (Eq,Ord)
@@ -18,22 +17,21 @@ instance Show Pl where
     show X = "X"
     show O = "O"
 
-data IllegalMv
-  = PlaceTaken
+data IllegalMv = PlaceTaken
   deriving Show
 
 type Move = (MoveN,MoveN)
-type Row = (Int,Pl,Pl,Pl)
+type Row  = (Int,Pl,Pl,Pl)
 type Game = (Row,Row,Row) -- yer boat
 
 mvC :: MoveN -> Lens' Row Pl
-mvC One = _2
-mvC Two = _3
+mvC One   = _2
+mvC Two   = _3
 mvC Three = _4
 
 mvR :: MoveN -> Lens' Game Row
-mvR One = _1
-mvR Two = _2
+mvR One   = _1
+mvR Two   = _2
 mvR Three = _3
 
 readMv :: Char -> Maybe MoveN
@@ -44,9 +42,10 @@ readMv s = case s of
   _   -> Nothing
 
 parseMove :: String -> Maybe Move
-parseMove = (^? _1 . to (\[r,c,_] -> (r,c))) . g
+parseMove = (^. _1 . to f) . g
   where
-      g = splitAt 2 . mapMaybe readMv
+    f l = (,) <$> l ^? _head <*> (drop 1 l) ^? _head
+    g = splitAt 2 . mapMaybe readMv
 
 move :: Move -> Lens' Game Pl
 move (r,c) = mvR r . mvC c
@@ -65,13 +64,14 @@ renderGame :: Game -> IO ()
 renderGame (a,b,c) =
     putStrLn header >> showR a >> showR b >> showR c
     where
-        showR = putStrLn . renderRow
-        header = "    1   2   3"
+      showR = putStrLn . renderRow
+      header = "    1   2   3"
 
 startBoard :: Game
-startBoard = ( (1,E,E,E)
-             , (2,E,X,E)
-             , (3,E,E,E))
+startBoard =
+    ( (1,E,E,E)
+    , (2,E,X,E)
+    , (3,E,E,E))
 
 victories :: [String]
 victories = [
@@ -84,14 +84,35 @@ victories = [
    ]
 
 victoryMoves :: [[Move]]
-victoryMoves = f <$> victories
+victoryMoves = (mapMaybe parseMove . words) <$> victories
+
+playerHoldsPlace :: Game -> Pl -> Move -> All
+playerHoldsPlace g p m = All $ g ^. move m . to (==p)
+
+checkVictory :: Game -> Pl -> Bool
+checkVictory g p = getAny $ foldMap (Any . getAll . foldMap f) victoryMoves
     where
-        f = mapMaybe parseMove . words
+      f = playerHoldsPlace g p
 
 main :: IO ()
 main = do
-    let b = startBoard
-    renderGame b
-    let b' = makeMove b O (One,Two)
-    renderGame b'
+  putStrLn "Welcome to HicHacToe"
+  go startBoard X
 
+  where
+    flipPl X = O
+    flipPl O = X
+    flipPl E = X
+
+    go g p = do
+        renderGame g
+        if checkVictory g (flipPl p)
+        then putStrLn $ "Player " <> (show $ flipPl p) <> " wins!!"
+        else do
+          putStrLn $ "Player " <> show p <> " it is your turn:"
+          i <- parseMove <$> getLine
+          case i of
+            Nothing -> putStrLn "Illegal move" >> go g p
+            Just m -> do
+                   if not (legalMove g m) then putStrLn "Place is taken!" >> go g p
+                   else go (makeMove g p m) (flipPl p)
